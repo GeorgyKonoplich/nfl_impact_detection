@@ -7,6 +7,7 @@ import pandas as pd
 import random
 import torch
 
+from fire import Fire
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import SequentialSampler, RandomSampler
 
@@ -16,7 +17,7 @@ from nfl_impact_detection.scripts.dataset import DatasetRetriever
 from nfl_impact_detection.scripts.fitter import Fitter
 from nfl_impact_detection.scripts.transform import get_train_transforms, get_valid_transforms
 
-SEED = 42
+
 
 def seed_everything(seed):
     random.seed(seed)
@@ -27,14 +28,14 @@ def seed_everything(seed):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-seed_everything(SEED)
 
 class TrainGlobalConfig:
     num_workers = 4
     batch_size = 3
-    n_epochs = 8
+    n_epochs = 6
     lr = 0.0002
-    folder = 'effdet5-models'
+    folder = '../experiments/effdet5-models-test'
+    dataset_name = 'dataset_only_impact'
     verbose = True
     verbose_step = 1
     step_scheduler = False
@@ -51,6 +52,7 @@ class TrainGlobalConfig:
         min_lr=1e-8,
         eps=1e-08
     )
+
 
 def collate_fn(batch):
     return tuple(zip(*batch))
@@ -82,27 +84,37 @@ def run_training(net, train_dataset, validation_dataset, config):
     fitter = Fitter(model=net, device=device, config=config, evaluation_labels_path='../data/evaluation_labels.csv')
     fitter.fit(train_loader, val_loader)
 
-train_video_labels = pd.read_csv('../data/train_video_labels.csv')
-val_video_labels = pd.read_csv('../data/val_video_labels.csv')
-image_dir = '../data/train_images_all'
 
-train_dataset = DatasetRetriever(
-    labels=train_video_labels,
-    transforms=get_train_transforms(),
-    image_dir=image_dir
-)
+def main(**kwargs):
+    SEED = 42
+    seed_everything(SEED)
 
-validation_dataset = DatasetRetriever(
-    labels=val_video_labels,
-    transforms=get_valid_transforms(),
-    image_dir=image_dir
-)
+    config = TrainGlobalConfig
+    
 
-net = get_net()
+    train_video_labels = pd.read_csv(f'../data/{config.dataset_name}/train_video_labels.csv')
+    val_video_labels = pd.read_csv(f'../data/{config.dataset_name}/val_video_labels.csv')
+    image_dir = '../data/train_images_all'
 
-run_training(net=net,
-             train_dataset=train_dataset,
-             validation_dataset=validation_dataset,
-             config=TrainGlobalConfig)
+    train_dataset = DatasetRetriever(
+        labels=train_video_labels,
+        transforms=get_train_transforms(),
+        image_dir=image_dir
+    )
 
+    validation_dataset = DatasetRetriever(
+        labels=val_video_labels,
+        transforms=get_valid_transforms(),
+        image_dir=image_dir
+    )
+
+    net = get_net()
+
+    run_training(net=net,
+                train_dataset=train_dataset,
+                validation_dataset=validation_dataset,
+                config=TrainGlobalConfig)
+
+if __name__ == '__main__':
+    Fire(main)
 
