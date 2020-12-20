@@ -107,6 +107,7 @@ class Validator:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
         image /= 255.0
         records = self.marking[self.marking['image_name'] == image_id]
+        records.loc[(records.impact==2) & (records.confidence<=1) & (records.visibility==0), 'impact']=1
         boxes = records[['x', 'y', 'w', 'h']].values
         boxes[:, 2] = boxes[:, 0] + boxes[:, 2]
         boxes[:, 3] = boxes[:, 1] + boxes[:, 3]
@@ -185,8 +186,7 @@ class Validator:
         precision = tp / (tp + fp + 1e-6)
         recall = tp / (tp + fn + 1e-6)
         f1_score = 2 * (precision * recall) / (precision + recall + 1e-6)
-        print('')
-        print(f'TP: {tp}, FP: {fp}, FN: {fn}, PRECISION: {precision:.4f}, RECALL: {recall:.4f}, F1 SCORE: {f1_score}')
+        return tp, fp, fn, precision, recall, f1_score
 
     def load(self, path):
         checkpoint = torch.load(path)

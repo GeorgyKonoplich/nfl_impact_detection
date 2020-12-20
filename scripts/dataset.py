@@ -10,7 +10,8 @@ class DatasetRetriever(Dataset):
     def __init__(self, labels, image_dir, transforms=None):
         super().__init__()
 
-        self.image_ids = labels.image.unique().tolist(),
+        self.image_ids = labels.image_name.unique()
+        #print(self.image_ids)
         self.labels = labels
         self.transforms = transforms
         self.image_dir = image_dir

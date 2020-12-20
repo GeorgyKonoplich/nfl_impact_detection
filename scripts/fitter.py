@@ -81,7 +81,11 @@ class Fitter:
             summary_loss = self.validation(validation_loader)
 
 
-            self.evaluator.calculate_metrics(self.model)
+            tp, fp, fn, precision, recall, f1_score = self.evaluator.calculate_metrics(self.model)
+            self.log(
+                f'[RESULT]: Val. Epoch: {self.epoch}, TP: {tp}, FP: {fp}, FN: {fn}, \
+                   PRECISION: {precision:.4f}, RECALL: {recall:.4f}, F1 SCORE: {f1_score}')
+        
 
             self.log(
                 f'[RESULT]: Val. Epoch: {self.epoch}, summary_loss: {summary_loss.avg:.5f}, time: {(time.time() - t):.5f}')
