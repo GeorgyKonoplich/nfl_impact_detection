@@ -9,6 +9,7 @@ from datetime import datetime
 import time
 from glob import glob
 import pandas as pd
+import shutil
 
 from nfl_impact_detection.scripts.transform import get_valid_transforms
 from nfl_impact_detection.scripts.validator import Validator
@@ -37,10 +38,16 @@ class Fitter:
     def __init__(self, model, device, config, evaluation_labels_path):
         self.config = config
         self.epoch = 0
-
+        self.restore_path = None
         self.base_dir = f'./{config.folder}'
         if not os.path.exists(self.base_dir):
             os.makedirs(self.base_dir)
+
+        if hasattr(config, 'restore_from'):
+            self.restore_path = config.restore_from
+            ind = self.restore_path.rfind('/')
+            restore_log_path = self.restore_path[:ind]
+            shutil.copy2(os.path.join(restore_log_path,'log.txt'), self.base_dir)
 
         self.log_path = f'{self.base_dir}/log.txt'
         self.best_summary_loss = 10 ** 5
@@ -66,7 +73,10 @@ class Fitter:
         
 
     def fit(self, train_loader, validation_loader):
-        self.log(f"\n [AUGMENTATIONS]: {str(train_loader.dataset.transforms[:-1])}")
+        if self.restore_path:
+            self.load(self.restore_path)
+            self.log(f"\n[RESTORED FROM]: {self.restore_path}")
+        self.log(f"\n[AUGMENTATIONS]: {str(train_loader.dataset.transforms[:-1])}")
         
         for e in range(self.config.n_epochs):
             if self.config.verbose:
@@ -98,8 +108,8 @@ class Fitter:
             self.best_summary_loss = summary_loss.avg
             self.model.eval()
             self.save(f'{self.base_dir}/best-checkpoint-{str(self.epoch).zfill(3)}epoch.bin')
-            for path in sorted(glob(f'{self.base_dir}/best-checkpoint-*epoch.bin'))[:-3]:
-                os.remove(path)
+            #for path in sorted(glob(f'{self.base_dir}/best-checkpoint-*epoch.bin'))[:-3]:
+            #    os.remove(path)
 
             if self.config.validation_scheduler:
                 self.scheduler.step(metrics=summary_loss.avg)
