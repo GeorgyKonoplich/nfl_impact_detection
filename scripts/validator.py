@@ -75,10 +75,10 @@ def precision_calc(gt_boxes, pred_boxes):
     cost_matix = np.ones((len(gt_boxes), len(pred_boxes)))
     for i, box1 in enumerate(gt_boxes):
         for j, box2 in enumerate(pred_boxes):
-            dist = abs(box1[0] - box2[0])
+            dist = abs(box1[0] - box2[1])
             if dist > 4:
                 continue
-            iou_score = iou(box1[1:], box2[1:])
+            iou_score = iou(box1[1:], box2[2:])
 
             if iou_score < 0.35:
                 continue
