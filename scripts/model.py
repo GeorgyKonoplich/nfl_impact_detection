@@ -8,6 +8,7 @@ def get_net():
     config = get_efficientdet_config('tf_efficientdet_d5')
     config.image_size = [512, 512]
     config.norm_kwargs = dict(eps=0.001, momentum=0.01)
+    config.soft_nms = True
     net = EfficientDet(config, pretrained_backbone=False)
     checkpoint = torch.load('../data/efficientdet_d5-ef44aea8.pth')
     net.load_state_dict(checkpoint)
