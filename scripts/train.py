@@ -35,8 +35,8 @@ class TrainGlobalConfig:
     num_workers = 4
     batch_size = 3
     n_epochs = 10
-    lr = 1e-5
-    folder = '../experiments/effdet5_ds_only_impact_master_22_12_2020'
+    lr = 5e-4
+    folder = '../experiments/effdet5_ds_only_impact_master_22_12_2020_'
     dataset_name = 'dataset_only_impact'
     verbose = True
     verbose_step = 1
@@ -46,17 +46,19 @@ class TrainGlobalConfig:
     cosine_annealing = True
     #SchedulerClass = torch.optim.lr_scheduler.ReduceLROnPlateau
     #SchedulerClass =  torch.optim.lr_scheduler.CosineAnnealingLR
-    #scheduler_params = dict(
-    #    mode='min',
-    #    factor=0.5,
-    #    patience=1,
-    #    verbose=True,
-    #    threshold=0.0001,
-    #    threshold_mode='abs',
-    #    cooldown=0,
-    #    min_lr=1e-8,
-    #    eps=1e-08
-    #)
+    """
+    scheduler_params = dict(
+        mode='min',
+        factor=0.5,
+        patience=1,
+        verbose=True,
+        threshold=0.0001,
+        threshold_mode='abs',
+        cooldown=0,
+        min_lr=1e-8,
+        eps=1e-08
+    )
+    """
 
 
 def collate_fn(batch):
@@ -115,7 +117,7 @@ def main(**kwargs):
         test=True
     )
 
-    net = get_net()
+    net = get_net(config)
 
     run_training(net=net,
                 train_dataset=train_dataset,

@@ -168,13 +168,13 @@ class Fitter:
         for step, (images, targets, image_ids) in enumerate(pbar):
             try:
                 pbar.set_description("summary_loss: %s" % summary_loss.avg)
-                print(
-                    f'Train Step {step}/{len(train_loader)},  summary_loss: {summary_loss.avg:.5f}, time: {(time.time() - t):.5f}')
+                #print(
+                #    f'Train Step {step}/{len(train_loader)},  summary_loss: {summary_loss.avg:.5f}, time: {(time.time() - t):.5f}')
                 # print(step)
                 # if self.config.verbose:
                 #    if step % self.config.verbose_step == 0:
-
-                self.scheduler.step()
+                if self.cosine_annealing:
+                    self.scheduler.step()
 
                 images = torch.stack(images)
                 images = images.to(self.device).float()
