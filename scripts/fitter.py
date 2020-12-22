@@ -1,5 +1,5 @@
-
 import sys
+
 sys.path.insert(0, "timm-efficientdet-pytorch")
 sys.path.insert(0, "omegaconf")
 
@@ -10,13 +10,15 @@ import time
 from glob import glob
 import pandas as pd
 import shutil
+from tqdm import tqdm
 
 from nfl_impact_detection.scripts.transform import get_valid_transforms
-from nfl_impact_detection.scripts.validator import Validator
+from nfl_impact_detection.scripts.validator import Validator, calculate_metrics
 
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self):
         self.reset()
 
@@ -47,17 +49,16 @@ class Fitter:
             self.restore_path = config.restore_from
             ind = self.restore_path.rfind('/')
             restore_log_path = self.restore_path[:ind]
-            shutil.copy2(os.path.join(restore_log_path,'log.txt'), self.base_dir)
-            
+            shutil.copy2(os.path.join(restore_log_path, 'log.txt'), self.base_dir)
 
         self.log_path = f'{self.base_dir}/log.txt'
         self.best_summary_loss = 10 ** 5
 
         self.model = model
         self.device = device
-        
-        self.evaluator = Validator(device=device,
-                                   marking= pd.read_csv(evaluation_labels_path),
+
+        self.validator = Validator(device=device,
+                                   labels=pd.read_csv(evaluation_labels_path),
                                    transforms=get_valid_transforms())
 
         param_optimizer = list(self.model.named_parameters())
@@ -79,7 +80,6 @@ class Fitter:
             
         self.log_config(config)
         self.log(f'Fitter prepared. Device is {self.device}')
-        
 
     def fit(self, train_loader, validation_loader):
         if self.restore_path:
@@ -88,7 +88,6 @@ class Fitter:
             self.load(self.restore_path, resume_training=resume_training)
             self.log(f"\n[RESTORED FROM]: {self.restore_path}")
         self.log(f"\n[AUGMENTATIONS]: {str(train_loader.dataset.transforms[:-1])}")
-        
 
         for e in range(self.config.n_epochs):
             if self.config.verbose:
@@ -109,19 +108,17 @@ class Fitter:
             self.log(
                 f'[RESULT]: Val. Epoch: {self.epoch}, summary_loss: {summary_loss.avg:.5f}, time: {(time.time() - t):.5f}')
 
-            tp, fp, fn, precision, recall, f1_score = self.evaluator.calculate_metrics(self.model)
-            self.log(
-                f'[RESULT]: Val. Epoch: {self.epoch}, TP: {tp}, FP: {fp}, FN: {fn}, \
-                   PRECISION: {precision:.4f}, RECALL: {recall:.4f}, F1 SCORE: {f1_score}')
-        
+            log1, log2 = calculate_metrics(validator=self.validator,
+                                           model=self.model,
+                                           score_threshold=0.4,
+                                           nms_threshold=0.5,
+                                           num_val_videos=5)
+            self.log(log1)
+            self.log(log2)
 
-            
-            #if summary_loss.avg < self.best_summary_loss:
             self.best_summary_loss = summary_loss.avg
             self.model.eval()
             self.save(f'{self.base_dir}/best-checkpoint-{str(self.epoch).zfill(3)}epoch.bin')
-            #for path in sorted(glob(f'{self.base_dir}/best-checkpoint-*epoch.bin'))[:-3]:
-            #    os.remove(path)
 
             if not self.cosine_annealing and self.config.validation_scheduler:
                 self.scheduler.step(metrics=summary_loss.avg)
@@ -167,8 +164,10 @@ class Fitter:
         t = time.time()
         if self.cosine_annealing:
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, len(train_loader))
-        for step, (images, targets, image_ids) in enumerate(train_loader):
+        pbar = tqdm(train_loader, desc='Epoch: ' + str(self.epoch))
+        for step, (images, targets, image_ids) in enumerate(pbar):
             try:
+                pbar.set_description("summary_loss: %s" % summary_loss.avg)
                 print(
                     f'Train Step {step}/{len(train_loader)},  summary_loss: {summary_loss.avg:.5f}, time: {(time.time() - t):.5f}')
                 # print(step)
@@ -176,6 +175,7 @@ class Fitter:
                 #    if step % self.config.verbose_step == 0:
 
                 self.scheduler.step()
+
                 images = torch.stack(images)
                 images = images.to(self.device).float()
                 batch_size = images.shape[0]
@@ -207,7 +207,6 @@ class Fitter:
             except Exception as error:
                 self.log(f'Failed to train on step {step} with {error}')
 
-
         return summary_loss
 
     def save(self, path):
@@ -235,10 +234,9 @@ class Fitter:
             print(message)
         with open(self.log_path, 'a+') as logger:
             logger.write(f'{message}\n')
-    
+
     def log_config(self, config):
         self.log(f"\n[DATASET]: {config.dataset_name}")
         self.log(f"[BATCH SIZE]: {config.batch_size}")
         self.log(f"[LR]: {config.lr}")
         self.log(f"[SAVE FOLDER]: {config.folder}")
-        
