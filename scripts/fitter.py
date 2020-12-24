@@ -69,15 +69,28 @@ class Fitter:
         ]
 
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=config.lr)
-        self.scheduler = config.SchedulerClass(self.optimizer, **config.scheduler_params)
+        
+
+        if config.cosine_annealing:
+            self.cosine_annealing = True
+        else:
+            self.cosine_annealing = False
+            self.scheduler = config.SchedulerClass(self.optimizer, **config.scheduler_params)
+        
+            
         self.log_config(config)
         self.log(f'Fitter prepared. Device is {self.device}')
 
     def fit(self, train_loader, validation_loader):
         if self.restore_path:
-            self.load(self.restore_path)
+            if hasattr(self.config, 'resume_training'):
+                resume_training = self.config.resume_training
+                for group in self.optimizer.param_groups:
+                    group['lr'] = self.config.lr
+            self.load(self.restore_path, resume_training=resume_training)
             self.log(f"\n[RESTORED FROM]: {self.restore_path}")
         self.log(f"\n[AUGMENTATIONS]: {str(train_loader.dataset.transforms[:-1])}")
+        self.log(f"['CUTMIX MIXUP']: {self.config.apply_cutmix_mixup}")
 
         for e in range(self.config.n_epochs):
             if self.config.verbose:
@@ -102,7 +115,7 @@ class Fitter:
                                            model=self.model,
                                            score_threshold=0.4,
                                            nms_threshold=0.5,
-                                           num_val_videos=5)
+                                           num_val_videos=self.config.num_val_videos)
             self.log(log1)
             self.log(log2)
 
@@ -110,7 +123,7 @@ class Fitter:
             self.model.eval()
             self.save(f'{self.base_dir}/best-checkpoint-{str(self.epoch).zfill(3)}epoch.bin')
 
-            if self.config.validation_scheduler:
+            if not self.cosine_annealing and self.config.validation_scheduler:
                 self.scheduler.step(metrics=summary_loss.avg)
 
             self.epoch += 1
@@ -143,7 +156,7 @@ class Fitter:
 
                 outputs = self.model(images, target_res)
                 loss = outputs['loss']
-
+    
                 summary_loss.update(loss.detach().item(), batch_size)
 
         return summary_loss
@@ -152,10 +165,20 @@ class Fitter:
         self.model.train()
         summary_loss = AverageMeter()
         t = time.time()
+        if self.cosine_annealing:
+            self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, len(train_loader))
         pbar = tqdm(train_loader, desc='Epoch: ' + str(self.epoch))
         for step, (images, targets, image_ids) in enumerate(pbar):
             try:
                 pbar.set_description("summary_loss: %s" % summary_loss.avg)
+                #print(
+                #    f'Train Step {step}/{len(train_loader)},  summary_loss: {summary_loss.avg:.5f}, time: {(time.time() - t):.5f}')
+                # print(step)
+                # if self.config.verbose:
+                #    if step % self.config.verbose_step == 0:
+                if self.cosine_annealing:
+                    self.scheduler.step()
+
                 images = torch.stack(images)
                 images = images.to(self.device).float()
                 batch_size = images.shape[0]
@@ -175,14 +198,14 @@ class Fitter:
 
                 outputs = self.model(images, target_res)
                 loss = outputs['loss']
-
+    
                 loss.backward()
 
                 summary_loss.update(loss.detach().item(), batch_size)
 
                 self.optimizer.step()
 
-                if self.config.step_scheduler:
+                if not self.cosine_annealing and self.config.step_scheduler:
                     self.scheduler.step()
             except Exception as error:
                 self.log(f'Failed to train on step {step} with {error}')
@@ -199,13 +222,15 @@ class Fitter:
             'epoch': self.epoch,
         }, path)
 
-    def load(self, path):
+    def load(self, path, resume_training=True):
         checkpoint = torch.load(path)
         self.model.model.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        self.best_summary_loss = checkpoint['best_summary_loss']
-        self.epoch = checkpoint['epoch'] + 1
+        if resume_training:
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            if not self.cosine_annealing:
+                self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            self.best_summary_loss = checkpoint['best_summary_loss']
+            self.epoch = checkpoint['epoch'] + 1
 
     def log(self, message):
         if self.config.verbose:
@@ -218,3 +243,4 @@ class Fitter:
         self.log(f"[BATCH SIZE]: {config.batch_size}")
         self.log(f"[LR]: {config.lr}")
         self.log(f"[SAVE FOLDER]: {config.folder}")
+        

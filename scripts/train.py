@@ -30,17 +30,25 @@ def seed_everything(seed):
 
 
 class TrainGlobalConfig:
+    restore_from = '../experiments/effdet5_ds_only_impact_master_23_12_2020/best-checkpoint-011epoch.bin'
+    resume_training = True
     num_workers = 4
     batch_size = 3
-    n_epochs = 6
-    lr = 0.0002
-    folder = '../experiments/effdet5-models-test'
+    n_epochs = 5
+    lr = 5e-5
+    folder = '../experiments/effdet5_ds_only_impact_master_23_12_2020-ft-2'
     dataset_name = 'dataset_only_impact'
     verbose = True
     verbose_step = 1
     step_scheduler = False
-    validation_scheduler = True
-    SchedulerClass = torch.optim.lr_scheduler.ReduceLROnPlateau
+    validation_scheduler = False
+    soft_nms = True
+    cosine_annealing = True
+    apply_cutmix_mixup = False
+    num_val_videos = 24
+    #SchedulerClass = torch.optim.lr_scheduler.ReduceLROnPlateau
+    #SchedulerClass =  torch.optim.lr_scheduler.CosineAnnealingLR
+    """
     scheduler_params = dict(
         mode='min',
         factor=0.5,
@@ -52,6 +60,7 @@ class TrainGlobalConfig:
         min_lr=1e-8,
         eps=1e-08
     )
+    """
 
 
 def collate_fn(batch):
@@ -86,7 +95,7 @@ def run_training(net, train_dataset, validation_dataset, config):
 
 
 def main(**kwargs):
-    SEED = 42
+    SEED = 43
     seed_everything(SEED)
 
     config = TrainGlobalConfig
@@ -99,16 +108,18 @@ def main(**kwargs):
     train_dataset = DatasetRetriever(
         labels=train_video_labels,
         transforms=get_train_transforms(),
-        image_dir=image_dir
+        image_dir=image_dir,
+        apply_cutmix_mixup=config.apply_cutmix_mixup
     )
 
     validation_dataset = DatasetRetriever(
         labels=val_video_labels,
         transforms=get_valid_transforms(),
-        image_dir=image_dir
+        image_dir=image_dir,
+        apply_cutmix_mixup=False
     )
 
-    net = get_net()
+    net = get_net(config)
 
     run_training(net=net,
                 train_dataset=train_dataset,
