@@ -28,9 +28,9 @@ class TrainClassifierConfig:
     batch_size = 32
     n_epochs = 30
     lr = 5e-4
-    folder = '../../experiments/classifiers/effnet7_baseline_aug_4'
+    folder = '../../experiments/classifiers/effnet7_baseline'
 
-    dataset_name = 'dataset_only_impact_conf_1_vsb_0'
+    dataset_name = 'dataset_only_impact'
     verbose = True
     verbose_step = 1
     step_scheduler = False
