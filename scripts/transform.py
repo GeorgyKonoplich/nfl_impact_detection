@@ -26,21 +26,22 @@ def get_train_transforms():
             #A.RandomSizedCrop(min_max_height=(240, 480), height=512, width=512, w2h_ratio=1.8, p=0.5),
             #A.RandomCrop(height=360, width=640, p=0.5),
             #A.CenterCrop(height=360, width=640, p=0.5),
-            A.OneOf([
-                A.HueSaturationValue(hue_shift_limit=0.2, sat_shift_limit= 0.2, 
-                                     val_shift_limit=0.2, p=0.9),
-                A.RandomBrightnessContrast(brightness_limit=0.2, 
-                                           contrast_limit=0.2, p=0.9),
-            ],p=0.9),
-            A.ToGray(p=0.01),
+            #A.OneOf([
+            #    A.HueSaturationValue(hue_shift_limit=0.2, sat_shift_limit= 0.2, 
+            #                         val_shift_limit=0.2, p=0.9),
+            #    A.RandomBrightnessContrast(brightness_limit=0.2, 
+            #                               contrast_limit=0.2, p=0.9),
+            #],p=0.9),
+            #A.ToGray(p=0.01),
             A.HorizontalFlip(p=0.5),
-            A.JpegCompression(quality_lower=85, quality_upper=95, p=0.2),
-            A.OneOf([
-                A.Blur(blur_limit=3, p=1.0),
-                A.MedianBlur(blur_limit=3, p=1.0)
-            ],p=0.1),
+            #A.JpegCompression(quality_lower=85, quality_upper=95, p=0.2),
+            #A.OneOf([
+            #    A.Blur(blur_limit=3, p=1.0),
+            #    A.MedianBlur(blur_limit=3, p=1.0)
+            #],p=0.1),
+            #A.Rotate(limit=7, p=0.5),
             A.Resize(height=512, width=512, p=1),
-            A.Cutout(num_holes=8, max_h_size=36, max_w_size=36, fill_value=0, p=0.5),
+            #A.Cutout(num_holes=8, max_h_size=36, max_w_size=36, fill_value=0, p=0.5),
             ToTensorV2(p=1.0),
             
         ], 

@@ -85,9 +85,12 @@ class Fitter:
         if self.restore_path:
             if hasattr(self.config, 'resume_training'):
                 resume_training = self.config.resume_training
+                for group in self.optimizer.param_groups:
+                    group['lr'] = self.config.lr
             self.load(self.restore_path, resume_training=resume_training)
             self.log(f"\n[RESTORED FROM]: {self.restore_path}")
         self.log(f"\n[AUGMENTATIONS]: {str(train_loader.dataset.transforms[:-1])}")
+        self.log(f"['CUTMIX MIXUP']: {self.config.apply_cutmix_mixup}")
 
         for e in range(self.config.n_epochs):
             if self.config.verbose:
@@ -112,7 +115,7 @@ class Fitter:
                                            model=self.model,
                                            score_threshold=0.4,
                                            nms_threshold=0.5,
-                                           num_val_videos=5)
+                                           num_val_videos=self.config.num_val_videos)
             self.log(log1)
             self.log(log2)
 
@@ -240,3 +243,4 @@ class Fitter:
         self.log(f"[BATCH SIZE]: {config.batch_size}")
         self.log(f"[LR]: {config.lr}")
         self.log(f"[SAVE FOLDER]: {config.folder}")
+        
