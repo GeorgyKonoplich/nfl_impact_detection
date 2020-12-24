@@ -206,7 +206,8 @@ class Validator:
         image = cv2.imread(f'{VAL_ROOT_PATH}/{image_id}', cv2.IMREAD_COLOR).copy().astype(np.float32)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) / 255.0
         records = self.labels[self.labels['image_name'] == image_id]
-        records.loc[(records.impact == 2) & (records.confidence <= 1) & (records.visibility == 0), 'impact'] = 1
+        records.loc[(records.impact == 2) & (records.confidence <= 1), 'impact'] = 1
+        records.loc[(records.impact == 2) & (records.visibility == 0), 'impact'] = 1
         boxes = records[['x', 'y', 'w', 'h']].values
         boxes[:, 2] = boxes[:, 0] + boxes[:, 2]
         boxes[:, 3] = boxes[:, 1] + boxes[:, 3]
